@@ -2,9 +2,8 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>2 Camera Feed AR Scene</title>
+    <title>Camera Feed AR Scene</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
         schema: {type: 'selector'},
@@ -38,39 +37,105 @@
           this.el.setAttribute('material', {
             shader: 'flat',
             src: video,
-            side: 'double'
+            side: 'double',
+            transparent: true,
+            opacity: 1
           });
+          this.el.object3D.renderOrder = -2;
+        }
+      });
+
+      AFRAME.registerComponent('motion-controls', {
+        schema: {
+          sensitivity: { type: 'number', default: 0.01 }
+        },
+        
+        init: function() {
+          this.position = new THREE.Vector3();
+          this.velocity = new THREE.Vector3();
+          this.lastTime = performance.now();
+          
+          // Request permission for iOS
+          if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            document.body.addEventListener('click', () => {
+              DeviceMotionEvent.requestPermission()
+                .then(response => {
+                  if (response == 'granted') {
+                    this.initMotion();
+                  }
+                })
+                .catch(console.error);
+            }, { once: true });
+          } else {
+            this.initMotion();
+          }
+        },
+
+        initMotion: function() {
+          window.addEventListener('devicemotion', (event) => {
+            const acc = event.accelerationIncludingGravity;
+            if (!acc) return;
+            
+            const currentTime = performance.now();
+            const deltaTime = (currentTime - this.lastTime) / 1000; // Convert to seconds
+            this.lastTime = currentTime;
+            
+            // Apply low-pass filter to reduce noise
+            const alpha = 0.8;
+            this.velocity.x += (acc.x * deltaTime * this.data.sensitivity * alpha);
+            this.velocity.z += (acc.z * deltaTime * this.data.sensitivity * alpha);
+            
+            // Apply velocity to position
+            this.position.x += this.velocity.x;
+            this.position.z += this.velocity.z;
+            
+            // Update camera position
+            this.el.object3D.position.copy(this.position);
+          });
+        },
+
+        tick: function() {
+          // Apply damping to velocity
+          this.velocity.multiplyScalar(0.95);
         }
       });
 
       AFRAME.registerComponent('camera-background', {
-        schema: {
-          distance: {type: 'number', default: 100}
-        },
         init: function() {
-          this.camera = document.querySelector('a-camera').object3D;
+          const backgroundEl = document.createElement('a-entity');
+          backgroundEl.setAttribute('webcam-texture', '');
+          
+          const camera = document.querySelector('a-camera');
+          camera.appendChild(backgroundEl);
+          
+          this.background = backgroundEl.object3D;
+          this.camera = camera.object3D;
+          
           this.updateDimensions = this.updateDimensions.bind(this);
+          camera.addEventListener('componentchanged', this.updateDimensions);
           window.addEventListener('resize', this.updateDimensions);
           this.updateDimensions();
-        },
-        tick: function() {
-          const distance = this.data.distance;
-          const worldPos = new THREE.Vector3(0, 0, -distance);
-          worldPos.applyMatrix4(this.camera.matrixWorld);
-          this.el.object3D.position.copy(worldPos);
-          this.el.object3D.quaternion.copy(this.camera.quaternion);
+
+          this.background.position.set(0, 0, -1);
+          this.background.rotation.set(0, 0, 0);
         },
         updateDimensions: function() {
           const camera = document.querySelector('a-camera').components.camera.camera;
-          const distance = this.data.distance;
+          const distance = 1;
           const vFOV = camera.fov * Math.PI / 180;
           const height = 2 * Math.tan(vFOV / 2) * distance;
           const width = height * camera.aspect;
           
-          this.el.setAttribute('width', width);
-          this.el.setAttribute('height', height);
+          if (!this.background.children[0]?.geometry) {
+            this.background.children[0].geometry = new THREE.PlaneGeometry(width, height);
+          } else {
+            this.background.children[0].geometry.dispose();
+            this.background.children[0].geometry = new THREE.PlaneGeometry(width, height);
+          }
         },
         remove: function() {
+          const camera = document.querySelector('a-camera');
+          camera.removeEventListener('componentchanged', this.updateDimensions);
           window.removeEventListener('resize', this.updateDimensions);
         }
       });
@@ -78,22 +143,20 @@
   </head>
   <body>
     <a-scene
-      embedded
-      arjs='sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;'
+      reflection="directionalLight: a-light[type=directional]"
       renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic"
       shadow="type: pcfsoft"
     >
       <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57" shadow-camera-automatic="#objects"></a-light>
+      <a-camera camera-background position="0 0.4 0" motion-controls="sensitivity: 0.01" wasd-controls="enabled: false"></a-camera>
       
-      <a-marker preset='hiro'>
-        <a-entity id="objects" scale="0.2 0.2 0.2" position="0 0 0" shadow>
-          <a-box position="-1 0.5 1" rotation="0 45 0" color="#4CC3D9"></a-box>
-          <a-sphere position="0 1.25 -1" radius="1.25" color="#EF2D5E"></a-sphere>
-          <a-cylinder position="1 0.75 1" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
-        </a-entity>
-      </a-marker>
+      <a-entity id="objects" scale="0.2 0.2 0.2" position="0 0 -1" shadow>
+        <a-box position="-1 0.5 1" rotation="0 45 0" color="#4CC3D9"></a-box>
+        <a-sphere position="0 1.25 -1" radius="1.25" color="#EF2D5E"></a-sphere>
+        <a-cylinder position="1 0.75 1" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
+      </a-entity>
       
-      <a-entity camera></a-entity>
+      <a-plane follow-shadow="#objects" material="shader:shadow" shadow="cast:false;" rotation="-90 0 0" width="2" height="2"></a-plane>
     </a-scene>
   </body>
 </html>
