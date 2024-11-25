@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>2iOS AR Workaround</title>
+    <title>3iOS AR Workaround</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe-master.min.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
@@ -29,11 +29,14 @@
         width: 100vw;
         height: 100vh;
         object-fit: cover;
-        z-index: -1;
+        z-index: 0;
       }
       .a-canvas {
-        position: absolute !important;
         z-index: 1;
+        pointer-events: none;
+      }
+      .a-enter-vr {
+        z-index: 2;
       }
     </style>
   </head>
@@ -42,10 +45,11 @@
     <a-scene
       reflection="directionalLight: a-light[type=directional]"
       ar-hit-test="target: #objects;"
-      renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic"
+      renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic; alpha: true"
       shadow="type: pcfsoft"
       xr-mode-ui="XRMode: xr"
       embedded
+      background="transparent: true"
     >
       <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57" shadow-camera-automatic="#objects"></a-light>
       <a-camera position="0 0.4 0" wasd-controls="acceleration:10;"></a-camera>
@@ -55,7 +59,6 @@
         <a-cylinder position="1 0.75 1" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
       </a-entity>
       <a-plane follow-shadow="#objects" material="shader:shadow" shadow="cast:false;" rotation="-90 0 0" width="2" height="2"></a-plane>
-      <a-sky color="#ECECEC" hide-on-enter-ar></a-sky>
     </a-scene>
     <script>
       const video = document.getElementById('camera-feed');
