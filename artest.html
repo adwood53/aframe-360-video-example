@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>2 Camera Feed AR Scene</title>
+    <title>Camera Feed AR Scene</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
@@ -47,13 +47,12 @@
 
       AFRAME.registerComponent('motion-controls', {
         schema: {
-          sensitivity: { type: 'number', default: 0.01 }
+          sensitivity: { type: 'number', default: 0.1 }
         },
         
         init: function() {
-          this.position = new THREE.Vector3();
-          this.velocity = new THREE.Vector3();
-          this.lastTime = performance.now();
+          this.currentPosition = new THREE.Vector3();
+          this.lastAcceleration = new THREE.Vector3();
           
           if (typeof DeviceMotionEvent.requestPermission === 'function') {
             document.body.addEventListener('click', () => {
@@ -72,21 +71,17 @@
 
         initMotion: function() {
           window.addEventListener('devicemotion', (event) => {
-            const acc = event.accelerationIncludingGravity;
+            const acc = event.acceleration;
             if (!acc) return;
             
-            const currentTime = performance.now();
-            const deltaTime = (currentTime - this.lastTime) / 1000;
-            this.lastTime = currentTime;
+            // Filter out small movements
+            if (Math.abs(acc.x) < 0.1) acc.x = 0;
+            if (Math.abs(acc.z) < 0.1) acc.z = 0;
             
-            const alpha = 0.8;
-            this.velocity.x += (acc.x * deltaTime * this.data.sensitivity * alpha);
-            this.velocity.z += (acc.z * deltaTime * this.data.sensitivity * alpha);
+            this.currentPosition.x -= acc.x * this.data.sensitivity;
+            this.currentPosition.z -= acc.z * this.data.sensitivity;
             
-            this.position.x += this.velocity.x;
-            this.position.z += this.velocity.z;
-            
-            this.el.object3D.position.copy(this.position);
+            this.el.object3D.position.copy(this.currentPosition);
           });
         },
 
