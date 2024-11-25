@@ -2,17 +2,19 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Hello, AR World! • A-Frame</title>
-    <meta name="description" content="Hello, AR World! • A-Frame">
-    <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>iOS AR Workaround</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe-master.min.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
         schema: {type: 'selector'},
-        init() {this.el.object3D.renderOrder = -1;},
+        init() {
+          this.el.object3D.renderOrder = -1;
+        },
         tick() {
           if (this.data) {
             this.el.object3D.position.copy(this.data.object3D.position);
-            this.el.object3D.position.y -= 0.001; // stop z-fighting
+            this.el.object3D.position.y -= 0.001;
           }
         }
       });
@@ -29,49 +31,58 @@
         width: 100%;
         height: 100%;
         object-fit: cover;
-        z-index: -1; /* Ensure video stays in the background */
+        z-index: -1;
+        transform: scaleX(-1); /* Mirror the camera feed */
       }
-      a-scene {
-        position: relative;
-        z-index: 0; /* Ensure the scene renders above the video */
+      .a-enter-vr {
+        display: none; /* Hide VR button */
       }
     </style>
   </head>
   <body>
-    <!-- Camera feed for background -->
-    <video id="camera-feed" autoplay playsinline muted></video>
-
-    <a-scene
-      reflection="directionalLight: a-light[type=directional]"
-      ar-hit-test="target: #objects;"
+    <video id="camera-feed" autoplay playsinline></video>
+    <a-scene 
+      embedded
       renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic"
-      shadow="type: pcfsoft"
-      xr-mode-ui="XRMode: xr"
-    >
-      <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57" shadow-camera-automatic="#objects"></a-light>
-      <a-camera position="0 0.4 0" wasd-controls="acceleration:10;"></a-camera>
-      <a-entity id="objects" scale="0.2 0.2 0.2" position="0 0 -1" shadow>
+      shadow="type: pcfsoft">
+      <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57"></a-light>
+      <a-camera position="0 1.6 0" look-controls="enabled: true; touchEnabled: true; magicWindowTrackingEnabled: true;"></a-camera>
+      <a-entity id="objects" position="0 0 -2" shadow>
         <a-box position="-1 0.5 1" rotation="0 45 0" color="#4CC3D9"></a-box>
         <a-sphere position="0 1.25 -1" radius="1.25" color="#EF2D5E"></a-sphere>
         <a-cylinder position="1 0.75 1" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
       </a-entity>
-      <a-plane follow-shadow="#objects" material="shader:shadow" shadow="cast:false;" rotation="-90 0 0" width="2" height="2"></a-plane>
-      <a-sky color="#ECECEC" hide-on-enter-ar></a-sky>
+      <a-plane follow-shadow="#objects" material="shader:shadow" shadow="cast:false;" rotation="-90 0 0" width="4" height="4"></a-plane>
     </a-scene>
-
     <script>
       const video = document.getElementById('camera-feed');
+      
+      // Use rear camera when available
+      navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: { ideal: 'environment' },
+          width: { ideal: window.innerWidth },
+          height: { ideal: window.innerHeight }
+        } 
+      })
+      .then((stream) => {
+        video.srcObject = stream;
+        video.play().catch(console.error);
+      })
+      .catch((err) => {
+        console.error('Camera error:', err);
+        alert('Please enable camera access');
+      });
 
-      // Access the device's camera
-      navigator.mediaDevices
-        .getUserMedia({ video: true })
-        .then((stream) => {
-          video.srcObject = stream; // Set the video feed to the video element
-        })
-        .catch((err) => {
-          console.error('Error accessing camera:', err);
-          alert('Unable to access camera. Please check permissions and ensure HTTPS.');
-        });
+      // Handle device orientation for better tracking
+      window.addEventListener('deviceorientation', (event) => {
+        const camera = document.querySelector('a-camera');
+        if (camera && event.alpha !== null) {
+          camera.object3D.rotation.y = THREE.MathUtils.degToRad(-event.alpha);
+          camera.object3D.rotation.x = THREE.MathUtils.degToRad(event.beta);
+          camera.object3D.rotation.z = THREE.MathUtils.degToRad(event.gamma);
+        }
+      });
     </script>
   </body>
 </html>
