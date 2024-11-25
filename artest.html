@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>2 Camera Feed AR Scene</title>
+    <title>3 Camera Feed AR Scene</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
@@ -42,22 +42,24 @@
         }
       });
 
-      AFRAME.registerComponent('follow-camera', {
+      AFRAME.registerComponent('camera-background', {
         schema: {
           distance: {type: 'number', default: 100}
         },
         init: function() {
+          this.camera = document.querySelector('a-camera').object3D;
           this.updateDimensions = this.updateDimensions.bind(this);
           window.addEventListener('resize', this.updateDimensions);
           this.updateDimensions();
         },
         tick: function() {
-          const cameraEl = document.querySelector('a-camera');
-          const cameraPosition = cameraEl.object3D.position;
-          this.el.object3D.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z - this.data.distance);
-          
-          const rotation = cameraEl.object3D.rotation;
-          this.el.object3D.rotation.y = rotation.y;
+          const distance = this.data.distance;
+          const worldPos = new THREE.Vector3(0, 0, -distance);
+          worldPos.applyMatrix4(this.camera.matrixWorld);
+          this.el.object3D.position.copy(worldPos);
+
+          // Keep rotation aligned with camera view
+          this.el.object3D.quaternion.copy(this.camera.quaternion);
         },
         updateDimensions: function() {
           const camera = document.querySelector('a-camera').components.camera.camera;
@@ -86,7 +88,7 @@
       
       <a-plane 
         webcam-texture 
-        follow-camera="distance: 100"
+        camera-background="distance: 100"
         material="shader: flat; side: double">
       </a-plane>
       
