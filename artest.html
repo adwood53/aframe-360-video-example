@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Camera Feed AR Scene</title>
+    <title>2 Camera Feed AR Scene</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
@@ -46,47 +46,55 @@
       });
 
       AFRAME.registerComponent('motion-controls', {
-        schema: {
-          sensitivity: { type: 'number', default: 0.1 }
-        },
-        
         init: function() {
-          this.currentPosition = new THREE.Vector3();
-          this.lastAcceleration = new THREE.Vector3();
+          this.position = { x: 0, y: 0.4, z: 0 };
+          this.acceleration = { x: 0, z: 0 };
+          this.velocity = { x: 0, z: 0 };
+          this.lastTime = Date.now();
+          this.sensitivity = 0.05;
           
           if (typeof DeviceMotionEvent.requestPermission === 'function') {
             document.body.addEventListener('click', () => {
               DeviceMotionEvent.requestPermission()
                 .then(response => {
                   if (response == 'granted') {
-                    this.initMotion();
+                    this.bindEvents();
                   }
                 })
                 .catch(console.error);
             }, { once: true });
           } else {
-            this.initMotion();
+            this.bindEvents();
           }
         },
 
-        initMotion: function() {
-          window.addEventListener('devicemotion', (event) => {
-            const acc = event.acceleration;
-            if (!acc) return;
+        bindEvents: function() {
+          window.addEventListener('devicemotion', (e) => {
+            if (!e.acceleration) return;
             
-            // Filter out small movements
-            if (Math.abs(acc.x) < 0.1) acc.x = 0;
-            if (Math.abs(acc.z) < 0.1) acc.z = 0;
-            
-            this.currentPosition.x -= acc.x * this.data.sensitivity;
-            this.currentPosition.z -= acc.z * this.data.sensitivity;
-            
-            this.el.object3D.position.copy(this.currentPosition);
-          });
-        },
+            const now = Date.now();
+            const dt = (now - this.lastTime) / 1000;
+            this.lastTime = now;
 
-        tick: function() {
-          this.velocity.multiplyScalar(0.95);
+            // Update acceleration
+            this.acceleration.x = -e.acceleration.x * this.sensitivity;
+            this.acceleration.z = e.acceleration.z * this.sensitivity;
+
+            // Update velocity
+            this.velocity.x += this.acceleration.x * dt;
+            this.velocity.z += this.acceleration.z * dt;
+
+            // Apply damping
+            this.velocity.x *= 0.95;
+            this.velocity.z *= 0.95;
+
+            // Update position
+            this.position.x += this.velocity.x * dt;
+            this.position.z += this.velocity.z * dt;
+
+            // Update camera position
+            this.el.setAttribute('position', this.position);
+          });
         }
       });
 
@@ -95,7 +103,6 @@
           const backgroundEl = document.createElement('a-entity');
           backgroundEl.setAttribute('webcam-texture', '');
           backgroundEl.setAttribute('position', '0 0 -1');
-          
           this.el.appendChild(backgroundEl);
         }
       });
@@ -103,11 +110,11 @@
   </head>
   <body>
     <a-scene
-      renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic"
+      renderer="colorManagement: true; physicallyCorrectLights: true; exposure: 1; toneMapping: ACESFilmic"
       shadow="type: pcfsoft"
     >
       <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57" shadow-camera-automatic="#objects"></a-light>
-      <a-camera camera-background position="0 0.4 0" motion-controls="sensitivity: 0.01" wasd-controls="enabled: false"></a-camera>
+      <a-camera camera-background position="0 0.4 0" motion-controls wasd-controls="enabled: false"></a-camera>
       
       <a-entity id="objects" scale="0.2 0.2 0.2" position="0 0 -1" shadow>
         <a-box position="-1 0.5 1" rotation="0 45 0" color="#4CC3D9"></a-box>
