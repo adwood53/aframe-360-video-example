@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Camera Feed AR Scene</title>
+    <title>2 Camera Feed AR Scene</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
@@ -33,14 +33,14 @@
                 console.error('Camera error:', error);
               });
           }
-          
-          this.el.setAttribute('material', {
-            shader: 'flat',
-            src: video,
-            side: 'double',
-            transparent: true,
-            opacity: 1
+
+          var geometry = new THREE.PlaneGeometry(2, 2);
+          var material = new THREE.MeshBasicMaterial({ 
+            map: new THREE.VideoTexture(video),
+            side: THREE.DoubleSide
           });
+          var mesh = new THREE.Mesh(geometry, material);
+          this.el.setObject3D('mesh', mesh);
           this.el.object3D.renderOrder = -2;
         }
       });
@@ -55,7 +55,6 @@
           this.velocity = new THREE.Vector3();
           this.lastTime = performance.now();
           
-          // Request permission for iOS
           if (typeof DeviceMotionEvent.requestPermission === 'function') {
             document.body.addEventListener('click', () => {
               DeviceMotionEvent.requestPermission()
@@ -77,25 +76,21 @@
             if (!acc) return;
             
             const currentTime = performance.now();
-            const deltaTime = (currentTime - this.lastTime) / 1000; // Convert to seconds
+            const deltaTime = (currentTime - this.lastTime) / 1000;
             this.lastTime = currentTime;
             
-            // Apply low-pass filter to reduce noise
             const alpha = 0.8;
             this.velocity.x += (acc.x * deltaTime * this.data.sensitivity * alpha);
             this.velocity.z += (acc.z * deltaTime * this.data.sensitivity * alpha);
             
-            // Apply velocity to position
             this.position.x += this.velocity.x;
             this.position.z += this.velocity.z;
             
-            // Update camera position
             this.el.object3D.position.copy(this.position);
           });
         },
 
         tick: function() {
-          // Apply damping to velocity
           this.velocity.multiplyScalar(0.95);
         }
       });
@@ -104,46 +99,15 @@
         init: function() {
           const backgroundEl = document.createElement('a-entity');
           backgroundEl.setAttribute('webcam-texture', '');
+          backgroundEl.setAttribute('position', '0 0 -1');
           
-          const camera = document.querySelector('a-camera');
-          camera.appendChild(backgroundEl);
-          
-          this.background = backgroundEl.object3D;
-          this.camera = camera.object3D;
-          
-          this.updateDimensions = this.updateDimensions.bind(this);
-          camera.addEventListener('componentchanged', this.updateDimensions);
-          window.addEventListener('resize', this.updateDimensions);
-          this.updateDimensions();
-
-          this.background.position.set(0, 0, -1);
-          this.background.rotation.set(0, 0, 0);
-        },
-        updateDimensions: function() {
-          const camera = document.querySelector('a-camera').components.camera.camera;
-          const distance = 1;
-          const vFOV = camera.fov * Math.PI / 180;
-          const height = 2 * Math.tan(vFOV / 2) * distance;
-          const width = height * camera.aspect;
-          
-          if (!this.background.children[0]?.geometry) {
-            this.background.children[0].geometry = new THREE.PlaneGeometry(width, height);
-          } else {
-            this.background.children[0].geometry.dispose();
-            this.background.children[0].geometry = new THREE.PlaneGeometry(width, height);
-          }
-        },
-        remove: function() {
-          const camera = document.querySelector('a-camera');
-          camera.removeEventListener('componentchanged', this.updateDimensions);
-          window.removeEventListener('resize', this.updateDimensions);
+          this.el.appendChild(backgroundEl);
         }
       });
     </script>
   </head>
   <body>
     <a-scene
-      reflection="directionalLight: a-light[type=directional]"
       renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic"
       shadow="type: pcfsoft"
     >
