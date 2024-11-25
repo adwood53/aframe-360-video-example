@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Camera Feed AR Scene</title>
+    <title>2 Camera Feed AR Scene</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
@@ -37,67 +37,49 @@
           this.el.setAttribute('material', {
             shader: 'flat',
             src: video,
-            side: 'double',
-            transparent: true,
-            opacity: 1
+            side: 'double'
           });
-          this.el.object3D.renderOrder = -2; // Render before everything
         }
       });
 
-      AFRAME.registerComponent('camera-background', {
+      AFRAME.registerComponent('device-orientation-camera', {
         init: function() {
-          // Create a child of camera
-          const backgroundEl = document.createElement('a-entity');
-          backgroundEl.setAttribute('webcam-texture', '');
-          
-          const camera = document.querySelector('a-camera');
-          camera.appendChild(backgroundEl);
-          
-          this.background = backgroundEl.object3D;
-          this.camera = camera.object3D;
-          
-          // Update dimensions on camera change
-          this.updateDimensions = this.updateDimensions.bind(this);
-          camera.addEventListener('componentchanged', this.updateDimensions);
-          window.addEventListener('resize', this.updateDimensions);
-          this.updateDimensions();
-
-          // Position background in camera space
-          this.background.position.set(0, 0, -1);
-          this.background.rotation.set(0, 0, 0);
-        },
-        updateDimensions: function() {
-          const camera = document.querySelector('a-camera').components.camera.camera;
-          const distance = 1;  // Fixed distance from camera
-          const vFOV = camera.fov * Math.PI / 180;
-          const height = 2 * Math.tan(vFOV / 2) * distance;
-          const width = height * camera.aspect;
-          
-          // Create or update the plane geometry
-          if (!this.background.children[0]?.geometry) {
-            this.background.children[0].geometry = new THREE.PlaneGeometry(width, height);
+          if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            document.addEventListener('click', () => {
+              DeviceOrientationEvent.requestPermission()
+                .then(response => {
+                  if (response === 'granted') {
+                    window.addEventListener('deviceorientation', this.handleOrientation.bind(this));
+                  }
+                })
+                .catch(console.error);
+            }, { once: true });
           } else {
-            this.background.children[0].geometry.dispose();
-            this.background.children[0].geometry = new THREE.PlaneGeometry(width, height);
+            window.addEventListener('deviceorientation', this.handleOrientation.bind(this));
           }
         },
-        remove: function() {
-          const camera = document.querySelector('a-camera');
-          camera.removeEventListener('componentchanged', this.updateDimensions);
-          window.removeEventListener('resize', this.updateDimensions);
+        handleOrientation: function(event) {
+          const camera = this.el.object3D;
+          camera.rotation.set(
+            THREE.MathUtils.degToRad(event.beta),
+            THREE.MathUtils.degToRad(event.alpha),
+            THREE.MathUtils.degToRad(-event.gamma)
+          );
         }
       });
     </script>
   </head>
   <body>
     <a-scene
-      reflection="directionalLight: a-light[type=directional]"
-      renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic"
+      renderer="colorManagement: true;"
       shadow="type: pcfsoft"
     >
-      <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57" shadow-camera-automatic="#objects"></a-light>
-      <a-camera camera-background position="0 0.4 0" wasd-controls="acceleration:10;"></a-camera>
+      <a-light type="ambient" intensity="0.5"></a-light>
+      <a-light type="directional" position="1 1 1" intensity="0.6" castShadow="true"></a-light>
+      
+      <a-camera device-orientation-camera position="0 1.6 0"></a-camera>
+      
+      <a-videosphere webcam-texture rotation="0 -90 0"></a-videosphere>
       
       <a-entity id="objects" scale="0.2 0.2 0.2" position="0 0 -1" shadow>
         <a-box position="-1 0.5 1" rotation="0 45 0" color="#4CC3D9"></a-box>
