@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>3iOS AR Workaround</title>
+    <title>4iOS AR Workaround</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe-master.min.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
@@ -18,75 +18,58 @@
       });
     </script>
     <style>
-      body {
-        margin: 0;
-        overflow: hidden;
-      }
+      body { margin: 0; overflow: hidden; }
       #camera-feed {
         position: fixed;
         top: 0;
         left: 0;
         width: 100vw;
         height: 100vh;
-        object-fit: cover;
+        object-fit: contain;
         z-index: 0;
       }
       .a-canvas {
+        position: fixed !important;
         z-index: 1;
-        pointer-events: none;
-      }
-      .a-enter-vr {
-        z-index: 2;
       }
     </style>
   </head>
   <body>
     <video id="camera-feed" autoplay playsinline></video>
     <a-scene
-      reflection="directionalLight: a-light[type=directional]"
-      ar-hit-test="target: #objects;"
-      renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic; alpha: true"
-      shadow="type: pcfsoft"
-      xr-mode-ui="XRMode: xr"
       embedded
+      renderer="antialias: true; alpha: true;"
       background="transparent: true"
     >
-      <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57" shadow-camera-automatic="#objects"></a-light>
-      <a-camera position="0 0.4 0" wasd-controls="acceleration:10;"></a-camera>
-      <a-entity id="objects" scale="0.2 0.2 0.2" position="0 0 -1" shadow>
+      <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57"></a-light>
+      <a-camera position="0 1.6 0"></a-camera>
+      <a-entity id="objects" position="0 0 -2">
         <a-box position="-1 0.5 1" rotation="0 45 0" color="#4CC3D9"></a-box>
         <a-sphere position="0 1.25 -1" radius="1.25" color="#EF2D5E"></a-sphere>
         <a-cylinder position="1 0.75 1" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
       </a-entity>
-      <a-plane follow-shadow="#objects" material="shader:shadow" shadow="cast:false;" rotation="-90 0 0" width="2" height="2"></a-plane>
+      <a-plane follow-shadow="#objects" material="shader:shadow" rotation="-90 0 0" width="4" height="4"></a-plane>
     </a-scene>
     <script>
       const video = document.getElementById('camera-feed');
-      
-      navigator.mediaDevices.getUserMedia({ 
-        video: { 
+      const constraints = {
+        video: {
           facingMode: { exact: 'environment' },
           width: { ideal: window.innerWidth },
-          height: { ideal: window.innerHeight }
-        } 
-      })
-      .then((stream) => {
-        video.srcObject = stream;
-        video.play().catch(console.error);
-      })
-      .catch((err) => {
-        console.error('Camera error:', err);
-        alert('Please enable camera access');
-      });
-
-      window.addEventListener('deviceorientation', (event) => {
-        const camera = document.querySelector('a-camera');
-        if (camera && event.alpha !== null) {
-          camera.object3D.rotation.y = THREE.MathUtils.degToRad(-event.alpha);
-          camera.object3D.rotation.x = THREE.MathUtils.degToRad(event.beta);
-          camera.object3D.rotation.z = THREE.MathUtils.degToRad(event.gamma);
+          height: { ideal: window.innerHeight },
+          aspectRatio: window.innerWidth / window.innerHeight
         }
-      });
+      };
+      
+      navigator.mediaDevices.getUserMedia(constraints)
+        .then(stream => {
+          video.srcObject = stream;
+          const track = stream.getVideoTracks()[0];
+          const settings = track.getSettings();
+          video.style.width = '100%';
+          video.style.height = '100%';
+        })
+        .catch(console.error);
     </script>
   </body>
 </html>
