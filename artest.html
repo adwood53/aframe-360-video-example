@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Test 1, AR World! • A-Frame</title>
+    <title>Hello, AR World! • A-Frame</title>
     <meta name="description" content="Hello, AR World! • A-Frame">
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
     <script>
@@ -12,7 +12,7 @@
         tick() {
           if (this.data) {
             this.el.object3D.position.copy(this.data.object3D.position);
-            this.el.object3D.position.y-=0.001; // stop z-fighting
+            this.el.object3D.position.y -= 0.001; // stop z-fighting
           }
         }
       });
@@ -29,7 +29,11 @@
         width: 100%;
         height: 100%;
         object-fit: cover;
-        z-index: -1; /* Place the video feed behind the A-Frame scene */
+        z-index: -1; /* Ensure video stays in the background */
+      }
+      a-scene {
+        position: relative;
+        z-index: 0; /* Ensure the scene renders above the video */
       }
     </style>
   </head>
