@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Camera Feed AR Scene</title>
+    <title>2 Camera Feed AR Scene</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar-threex.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
         schema: {type: 'selector'},
@@ -52,29 +52,6 @@
           this.updateDimensions = this.updateDimensions.bind(this);
           window.addEventListener('resize', this.updateDimensions);
           this.updateDimensions();
-
-          // Request device motion permission for iOS
-          if (typeof DeviceMotionEvent.requestPermission === 'function') {
-            document.body.addEventListener('click', function() {
-              DeviceMotionEvent.requestPermission()
-                .then(function(response) {
-                  if (response == 'granted') {
-                    window.addEventListener('devicemotion', this.handleMotion);
-                  }
-                });
-            });
-          }
-
-          window.addEventListener('devicemotion', this.handleMotion);
-        },
-        handleMotion: function(event) {
-          const camera = document.querySelector('a-camera');
-          const acceleration = event.accelerationIncludingGravity;
-          
-          // Convert acceleration to position change
-          const scale = 0.01; // Adjust this value to control sensitivity
-          camera.object3D.position.x += acceleration.x * scale;
-          camera.object3D.position.z += acceleration.z * scale;
         },
         tick: function() {
           const distance = this.data.distance;
@@ -95,33 +72,28 @@
         },
         remove: function() {
           window.removeEventListener('resize', this.updateDimensions);
-          window.removeEventListener('devicemotion', this.handleMotion);
         }
       });
     </script>
   </head>
   <body>
     <a-scene
-      reflection="directionalLight: a-light[type=directional]"
+      embedded
+      arjs='sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;'
       renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic"
       shadow="type: pcfsoft"
     >
       <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57" shadow-camera-automatic="#objects"></a-light>
-      <a-camera position="0 0.4 0"></a-camera>
       
-      <a-plane 
-        webcam-texture 
-        camera-background="distance: 100"
-        material="shader: flat; side: double">
-      </a-plane>
+      <a-marker preset='hiro'>
+        <a-entity id="objects" scale="0.2 0.2 0.2" position="0 0 0" shadow>
+          <a-box position="-1 0.5 1" rotation="0 45 0" color="#4CC3D9"></a-box>
+          <a-sphere position="0 1.25 -1" radius="1.25" color="#EF2D5E"></a-sphere>
+          <a-cylinder position="1 0.75 1" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
+        </a-entity>
+      </a-marker>
       
-      <a-entity id="objects" scale="0.2 0.2 0.2" position="0 0 -1" shadow>
-        <a-box position="-1 0.5 1" rotation="0 45 0" color="#4CC3D9"></a-box>
-        <a-sphere position="0 1.25 -1" radius="1.25" color="#EF2D5E"></a-sphere>
-        <a-cylinder position="1 0.75 1" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
-      </a-entity>
-      
-      <a-plane follow-shadow="#objects" material="shader:shadow" shadow="cast:false;" rotation="-90 0 0" width="2" height="2"></a-plane>
+      <a-entity camera></a-entity>
     </a-scene>
   </body>
 </html>
