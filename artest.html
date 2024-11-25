@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>4iOS AR Workaround</title>
+    <title>5iOS AR Workaround</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
@@ -18,18 +18,21 @@
       });
     </script>
     <style>
-      body { margin: 0; overflow: hidden; }
+      body { margin: 0; }
       #camera-feed {
         position: fixed;
         top: 0;
         left: 0;
         width: 100vw;
         height: 100vh;
-        object-fit: contain;
+        object-fit: cover;
         z-index: 0;
+        transform: scaleX(-1);
       }
       .a-canvas {
         position: fixed !important;
+        top: 0;
+        left: 0;
         z-index: 1;
       }
     </style>
@@ -38,38 +41,67 @@
     <video id="camera-feed" autoplay playsinline></video>
     <a-scene
       embedded
-      renderer="antialias: true; alpha: true;"
-      background="transparent: true"
+      reflection="directionalLight: a-light[type=directional]"
+      renderer="antialias: true; colorManagement: true;"
+      shadow="type: pcfsoft"
     >
+      <a-assets>
+        <img id="floor" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==" />
+      </a-assets>
+
       <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57"></a-light>
       <a-camera position="0 1.6 0"></a-camera>
-      <a-entity id="objects" position="0 0 -2">
-        <a-box position="-1 0.5 1" rotation="0 45 0" color="#4CC3D9"></a-box>
-        <a-sphere position="0 1.25 -1" radius="1.25" color="#EF2D5E"></a-sphere>
-        <a-cylinder position="1 0.75 1" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
-      </a-entity>
-      <a-plane follow-shadow="#objects" material="shader:shadow" rotation="-90 0 0" width="4" height="4"></a-plane>
-    </a-scene>
-    <script>
-      const video = document.getElementById('camera-feed');
-      const constraints = {
-        video: {
-          facingMode: { exact: 'environment' },
-          width: { ideal: window.innerWidth },
-          height: { ideal: window.innerHeight },
-          aspectRatio: window.innerWidth / window.innerHeight
-        }
-      };
       
-      navigator.mediaDevices.getUserMedia(constraints)
+      <a-entity id="objects" position="0 0 -2" shadow>
+        <a-box position="-1 0.5 1" rotation="0 45 0" color="#4CC3D9" shadow></a-box>
+        <a-sphere position="0 1.25 -1" radius="1.25" color="#EF2D5E" shadow></a-sphere>
+        <a-cylinder position="1 0.75 1" radius="0.5" height="1.5" color="#FFC65D" shadow></a-cylinder>
+        <a-plane rotation="-90 0 0" width="4" height="4" material="src: #floor" shadow></a-plane>
+      </a-entity>
+    </a-scene>
+
+    <script>
+      // For PC testing, simulate orientation
+      if (!window.DeviceOrientationEvent) {
+        window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', {
+          alpha: 0,
+          beta: 0,
+          gamma: 0
+        }));
+      }
+
+      const video = document.getElementById('camera-feed');
+      
+      if (navigator.mediaDevices) {
+        navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'environment',
+            width: { ideal: screen.height },
+            height: { ideal: screen.width }
+          }
+        })
         .then(stream => {
           video.srcObject = stream;
+          video.play();
+          
+          // Fix orientation
           const track = stream.getVideoTracks()[0];
-          const settings = track.getSettings();
-          video.style.width = '100%';
-          video.style.height = '100%';
+          if (screen.orientation.type.includes('landscape')) {
+            video.style.transform = 'scaleX(-1) rotate(0deg)';
+          } else {
+            video.style.transform = 'scaleX(-1) rotate(-90deg)';
+          }
         })
         .catch(console.error);
+
+        screen.orientation.addEventListener('change', () => {
+          if (screen.orientation.type.includes('landscape')) {
+            video.style.transform = 'scaleX(-1) rotate(0deg)';
+          } else {
+            video.style.transform = 'scaleX(-1) rotate(-90deg)';
+          }
+        });
+      }
     </script>
   </body>
 </html>
