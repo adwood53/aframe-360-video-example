@@ -2,8 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>3 Camera Feed AR Scene</title>
+    <title>Camera Feed AR Scene</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar-threex.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
         schema: {type: 'selector'},
@@ -42,44 +43,77 @@
         }
       });
 
-      AFRAME.registerComponent('device-orientation-camera', {
-        init: function() {
-          if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-            document.addEventListener('click', () => {
-              DeviceOrientationEvent.requestPermission()
-                .then(response => {
-                  if (response === 'granted') {
-                    window.addEventListener('deviceorientation', this.handleOrientation.bind(this));
-                  }
-                })
-                .catch(console.error);
-            }, { once: true });
-          } else {
-            window.addEventListener('deviceorientation', this.handleOrientation.bind(this));
-          }
+      AFRAME.registerComponent('camera-background', {
+        schema: {
+          distance: {type: 'number', default: 100}
         },
-        handleOrientation: function(event) {
-          const camera = this.el.object3D;
-          camera.rotation.set(
-            THREE.MathUtils.degToRad(event.beta),
-            THREE.MathUtils.degToRad(event.alpha),
-            THREE.MathUtils.degToRad(-event.gamma)
-          );
+        init: function() {
+          this.camera = document.querySelector('a-camera').object3D;
+          this.updateDimensions = this.updateDimensions.bind(this);
+          window.addEventListener('resize', this.updateDimensions);
+          this.updateDimensions();
+
+          // Request device motion permission for iOS
+          if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            document.body.addEventListener('click', function() {
+              DeviceMotionEvent.requestPermission()
+                .then(function(response) {
+                  if (response == 'granted') {
+                    window.addEventListener('devicemotion', this.handleMotion);
+                  }
+                });
+            });
+          }
+
+          window.addEventListener('devicemotion', this.handleMotion);
+        },
+        handleMotion: function(event) {
+          const camera = document.querySelector('a-camera');
+          const acceleration = event.accelerationIncludingGravity;
+          
+          // Convert acceleration to position change
+          const scale = 0.01; // Adjust this value to control sensitivity
+          camera.object3D.position.x += acceleration.x * scale;
+          camera.object3D.position.z += acceleration.z * scale;
+        },
+        tick: function() {
+          const distance = this.data.distance;
+          const worldPos = new THREE.Vector3(0, 0, -distance);
+          worldPos.applyMatrix4(this.camera.matrixWorld);
+          this.el.object3D.position.copy(worldPos);
+          this.el.object3D.quaternion.copy(this.camera.quaternion);
+        },
+        updateDimensions: function() {
+          const camera = document.querySelector('a-camera').components.camera.camera;
+          const distance = this.data.distance;
+          const vFOV = camera.fov * Math.PI / 180;
+          const height = 2 * Math.tan(vFOV / 2) * distance;
+          const width = height * camera.aspect;
+          
+          this.el.setAttribute('width', width);
+          this.el.setAttribute('height', height);
+        },
+        remove: function() {
+          window.removeEventListener('resize', this.updateDimensions);
+          window.removeEventListener('devicemotion', this.handleMotion);
         }
       });
     </script>
   </head>
   <body>
     <a-scene
-      renderer="colorManagement: true;"
+      reflection="directionalLight: a-light[type=directional]"
+      renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic"
       shadow="type: pcfsoft"
     >
-      <a-light type="ambient" intensity="0.5"></a-light>
-      <a-light type="directional" position="1 1 1" intensity="0.6" castShadow="true"></a-light>
+      <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57" shadow-camera-automatic="#objects"></a-light>
+      <a-camera position="0 0.4 0"></a-camera>
       
-      <a-camera device-orientation-camera position="0 1.6 0"></a-camera>
-      
-      <a-videosphere webcam-texture rotation="0 -90 0"></a-videosphere>
+      <a-plane 
+        webcam-texture 
+        camera-background="distance: 100"
+        material="shader: flat; side: double">
+      </a-plane>
       
       <a-entity id="objects" scale="0.2 0.2 0.2" position="0 0 -1" shadow>
         <a-box position="-1 0.5 1" rotation="0 45 0" color="#4CC3D9"></a-box>
