@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>3 Camera Feed AR Scene</title>
+    <title>Camera Feed AR Scene</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
@@ -37,41 +37,54 @@
           this.el.setAttribute('material', {
             shader: 'flat',
             src: video,
-            side: 'double'
+            side: 'double',
+            transparent: true,
+            opacity: 1
           });
+          this.el.object3D.renderOrder = -2; // Render before everything
         }
       });
 
       AFRAME.registerComponent('camera-background', {
-        schema: {
-          distance: {type: 'number', default: 100}
-        },
         init: function() {
-          this.camera = document.querySelector('a-camera').object3D;
+          // Create a child of camera
+          const backgroundEl = document.createElement('a-entity');
+          backgroundEl.setAttribute('webcam-texture', '');
+          
+          const camera = document.querySelector('a-camera');
+          camera.appendChild(backgroundEl);
+          
+          this.background = backgroundEl.object3D;
+          this.camera = camera.object3D;
+          
+          // Update dimensions on camera change
           this.updateDimensions = this.updateDimensions.bind(this);
+          camera.addEventListener('componentchanged', this.updateDimensions);
           window.addEventListener('resize', this.updateDimensions);
           this.updateDimensions();
-        },
-        tick: function() {
-          const distance = this.data.distance;
-          const worldPos = new THREE.Vector3(0, 0, -distance);
-          worldPos.applyMatrix4(this.camera.matrixWorld);
-          this.el.object3D.position.copy(worldPos);
 
-          // Keep rotation aligned with camera view
-          this.el.object3D.quaternion.copy(this.camera.quaternion);
+          // Position background in camera space
+          this.background.position.set(0, 0, -1);
+          this.background.rotation.set(0, 0, 0);
         },
         updateDimensions: function() {
           const camera = document.querySelector('a-camera').components.camera.camera;
-          const distance = this.data.distance;
+          const distance = 1;  // Fixed distance from camera
           const vFOV = camera.fov * Math.PI / 180;
           const height = 2 * Math.tan(vFOV / 2) * distance;
           const width = height * camera.aspect;
           
-          this.el.setAttribute('width', width);
-          this.el.setAttribute('height', height);
+          // Create or update the plane geometry
+          if (!this.background.children[0]?.geometry) {
+            this.background.children[0].geometry = new THREE.PlaneGeometry(width, height);
+          } else {
+            this.background.children[0].geometry.dispose();
+            this.background.children[0].geometry = new THREE.PlaneGeometry(width, height);
+          }
         },
         remove: function() {
+          const camera = document.querySelector('a-camera');
+          camera.removeEventListener('componentchanged', this.updateDimensions);
           window.removeEventListener('resize', this.updateDimensions);
         }
       });
@@ -84,13 +97,7 @@
       shadow="type: pcfsoft"
     >
       <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57" shadow-camera-automatic="#objects"></a-light>
-      <a-camera position="0 0.4 0" wasd-controls="acceleration:10;"></a-camera>
-      
-      <a-plane 
-        webcam-texture 
-        camera-background="distance: 100"
-        material="shader: flat; side: double">
-      </a-plane>
+      <a-camera camera-background position="0 0.4 0" wasd-controls="acceleration:10;"></a-camera>
       
       <a-entity id="objects" scale="0.2 0.2 0.2" position="0 0 -1" shadow>
         <a-box position="-1 0.5 1" rotation="0 45 0" color="#4CC3D9"></a-box>
