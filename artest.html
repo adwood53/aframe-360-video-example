@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>2 Camera Feed AR Scene</title>
+    <title>Camera Feed AR Scene</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
@@ -48,11 +48,17 @@
       AFRAME.registerComponent('model-rotation-control', {
         init: function() {
           this.touchStart = { x: 0, y: 0 };
-          this.currentRotation = 90; // Start at 90 degrees
+          this.currentRotation = { x: 0, y: 90, z: 0 }; // Start Y at 90 degrees
           this.isRotating = false;
+          this.lastTouchCount = 0;
+          this.rotationMode = 'y'; // Default to Y rotation
 
           // Set initial rotation
-          this.el.object3D.rotation.y = THREE.MathUtils.degToRad(this.currentRotation);
+          this.el.object3D.rotation.set(
+            THREE.MathUtils.degToRad(this.currentRotation.x),
+            THREE.MathUtils.degToRad(this.currentRotation.y),
+            THREE.MathUtils.degToRad(this.currentRotation.z)
+          );
 
           this.onTouchStart = this.onTouchStart.bind(this);
           this.onTouchMove = this.onTouchMove.bind(this);
@@ -68,30 +74,79 @@
         },
 
         onTouchStart: function(evt) {
+          evt.preventDefault();
           this.isRotating = true;
-          this.touchStart.x = evt.type === 'touchstart' ? evt.touches[0].clientX : evt.clientX;
+          
+          if (evt.type === 'touchstart') {
+            this.touchStart.x = evt.touches[0].clientX;
+            this.touchStart.y = evt.touches[0].clientY;
+            this.lastTouchCount = evt.touches.length;
+
+            // Two finger touch changes rotation mode
+            if (evt.touches.length === 2) {
+              this.rotationMode = this.rotationMode === 'y' ? 'x' : 
+                                 this.rotationMode === 'x' ? 'z' : 'y';
+            }
+          } else {
+            this.touchStart.x = evt.clientX;
+            this.touchStart.y = evt.clientY;
+            // Right click changes rotation mode
+            if (evt.button === 2) {
+              this.rotationMode = this.rotationMode === 'y' ? 'x' : 
+                                 this.rotationMode === 'x' ? 'z' : 'y';
+            }
+          }
         },
 
         onTouchMove: function(evt) {
           if (!this.isRotating) return;
+          evt.preventDefault();
 
           const currentX = evt.type === 'touchmove' ? evt.touches[0].clientX : evt.clientX;
+          const currentY = evt.type === 'touchmove' ? evt.touches[0].clientY : evt.clientY;
+          
           const deltaX = currentX - this.touchStart.x;
+          const deltaY = currentY - this.touchStart.y;
           
           // Reduced rotation speed
-          const rotationDelta = deltaX * 0.25;
-          
-          this.el.object3D.rotation.y = THREE.MathUtils.degToRad(this.currentRotation + rotationDelta);
+          const rotationDelta = {
+            x: deltaY * 0.25,
+            y: deltaX * 0.25,
+            z: deltaX * 0.25
+          };
+
+          // Update rotation based on mode
+          if (this.rotationMode === 'x') {
+            this.currentRotation.x += rotationDelta.x;
+          } else if (this.rotationMode === 'y') {
+            this.currentRotation.y += rotationDelta.y;
+          } else {
+            this.currentRotation.z += rotationDelta.z;
+          }
+
+          this.el.object3D.rotation.set(
+            THREE.MathUtils.degToRad(this.currentRotation.x),
+            THREE.MathUtils.degToRad(this.currentRotation.y),
+            THREE.MathUtils.degToRad(this.currentRotation.z)
+          );
+
+          this.touchStart.x = currentX;
+          this.touchStart.y = currentY;
         },
 
-        onTouchEnd: function() {
-          if (this.isRotating) {
+        onTouchEnd: function(evt) {
+          if (evt.type === 'touchend') {
+            if (evt.touches.length < this.lastTouchCount) {
+              this.isRotating = false;
+            }
+            this.lastTouchCount = evt.touches.length;
+          } else {
             this.isRotating = false;
-            this.currentRotation = THREE.MathUtils.radToDeg(this.el.object3D.rotation.y);
           }
         },
 
         remove: function() {
+          document.addEventListener('contextmenu', e => e.preventDefault());
           document.removeEventListener('touchstart', this.onTouchStart);
           document.removeEventListener('touchmove', this.onTouchMove);
           document.removeEventListener('touchend', this.onTouchEnd);
@@ -139,7 +194,7 @@
         <!-- Back-facing model -->
         <a-entity
           gltf-model="#model"
-          position="0 0 0.4"
+          position="0 0 0.2"
           rotation="0 180 0"
           shadow="cast: true; receive: true">
         </a-entity>
