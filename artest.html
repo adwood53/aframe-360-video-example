@@ -248,6 +248,14 @@
       
       <a-camera position="0 0.4 0" wasd-controls="enabled: false" look-controls="enabled: false">
         <a-entity camera-background-plane="distance: -3"></a-entity>
+        <!-- Point light attached to the camera -->
+        <a-light 
+          type="point" 
+          intensity="1" 
+          distance="10" 
+          position="0 0 -1" <!-- Light in front of the camera -->
+          color="#ffffff">
+        </a-light>
       </a-camera>
       
 <!-- Model container with rotation point centered between models -->
