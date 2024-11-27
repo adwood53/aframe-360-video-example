@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>4 AR Model Viewer</title>
+    <title>5 AR Model Viewer</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
     <style>
       .control-buttons {
@@ -265,10 +265,12 @@
     shadow="cast: true; receive: true">
   </a-entity>
   <a-entity
-    gltf-model="#model"
-    position="-0.45 0 0.2"  <!-- Mirrored distance on other side -->
-    <!--rotation="0 180 0"-->
+    position="-0.45 0 0" <!-- Mirrored distance on other side -->
     shadow="cast: true; receive: true">
+    <a-entity
+      gltf-model="#model"
+      rotation="0 180 0"> <!-- Flip the model within a nested entity -->
+    </a-entity>
   </a-entity>
 </a-entity>
       
