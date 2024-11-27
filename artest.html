@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>AR Model Viewer</title>
+    <title>1 AR Model Viewer</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
@@ -104,8 +104,10 @@
           const deltaY = currentY - this.touchStart.y;
 
           // Slower rotation speed (0.25)
+          // Y rotation for left/right
           this.currentRotation.y += deltaX * 0.25;
-          this.currentRotation.x += deltaY * 0.25;
+          // Invert deltaY for more intuitive forward/backward tilt
+          this.currentRotation.x -= deltaY * 0.25;
 
           this.updateRotation();
 
