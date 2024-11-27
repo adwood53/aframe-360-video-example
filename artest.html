@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>1 AR Model Viewer</title>
+    <title>AR Model Viewer</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
@@ -50,7 +50,7 @@
       AFRAME.registerComponent('model-rotation-control', {
         init: function() {
           this.touchStart = { x: 0, y: 0 };
-          this.currentRotation = { x: 0, y: 90 }; // Start with Y at 90 degrees
+          this.currentRotation = { y: 90, z: 0 }; // Start with Y at 90 degrees
           this.isRotating = false;
 
           // Prevent context menu on right click
@@ -61,7 +61,7 @@
           this.onTouchMove = this.onTouchMove.bind(this);
           this.onTouchEnd = this.onTouchEnd.bind(this);
 
-          // Touch events
+          // Touch events with passive false to prevent default behavior
           document.addEventListener('touchstart', this.onTouchStart, { passive: false });
           document.addEventListener('touchmove', this.onTouchMove, { passive: false });
           document.addEventListener('touchend', this.onTouchEnd);
@@ -76,8 +76,8 @@
         },
 
         updateRotation: function() {
-          this.el.object3D.rotation.x = THREE.MathUtils.degToRad(this.currentRotation.x);
           this.el.object3D.rotation.y = THREE.MathUtils.degToRad(this.currentRotation.y);
+          this.el.object3D.rotation.z = THREE.MathUtils.degToRad(this.currentRotation.z);
         },
 
         onTouchStart: function(evt) {
@@ -106,8 +106,8 @@
           // Slower rotation speed (0.25)
           // Y rotation for left/right
           this.currentRotation.y += deltaX * 0.25;
-          // Invert deltaY for more intuitive forward/backward tilt
-          this.currentRotation.x -= deltaY * 0.25;
+          // Z rotation for up/down tilt
+          this.currentRotation.z += deltaY * 0.25;
 
           this.updateRotation();
 
@@ -170,7 +170,7 @@
         <!-- Back-facing model -->
         <a-entity
           gltf-model="#model"
-          position="0 0 1"
+          position="0.4 0 0.2"
           rotation="0 180 0"
           shadow="cast: true; receive: true">
         </a-entity>
