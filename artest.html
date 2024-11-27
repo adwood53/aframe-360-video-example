@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Camera Feed AR Scene</title>
+    <title>1 Camera Feed AR Scene</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
@@ -18,55 +18,20 @@
 
       AFRAME.registerComponent('webcam-texture', {
         init: function() {
-          // Handle both cases: permissions already granted and need to request
-          if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-            DeviceOrientationEvent.requestPermission()
-              .then(response => {
-                if (response === 'granted') {
-                  this.initializeWebcam();
-                }
-              })
-              .catch(error => {
-                console.warn('Permission flow failed:', error);
-                // Try initializing anyway in case permissions were previously granted
-                this.initializeWebcam();
-              });
-          } else {
-            // No permission needed (e.g., non-iOS) or already granted
-            this.initializeWebcam();
-          }
-        },
-
-        initializeWebcam: function() {
           var video = document.createElement('video');
           video.setAttribute('autoplay', true);
           video.setAttribute('playsinline', true);
           video.setAttribute('webkit-playsinline', true);
           
           if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ 
-              video: { 
-                facingMode: 'environment',
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-              } 
-            })
-            .then(stream => {
-              video.srcObject = stream;
-              video.play()
-                .catch(error => console.error('Error playing video:', error));
-            })
-            .catch(error => {
-              console.error('Camera error:', error);
-              // Fallback to any available camera
-              navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => {
-                  video.srcObject = stream;
-                  video.play()
-                    .catch(error => console.error('Error playing video:', error));
-                })
-                .catch(error => console.error('Fallback camera error:', error));
-            });
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+              .then(function(stream) {
+                video.srcObject = stream;
+                video.play();
+              })
+              .catch(function(error) {
+                console.error('Camera error:', error);
+              });
           }
 
           var geometry = new THREE.PlaneGeometry(2, 2);
@@ -80,37 +45,13 @@
         }
       });
 
-      AFRAME.registerComponent('interactive-model', {
-        init: function() {
-          this.el.addEventListener('model-loaded', () => {
-            const obj = this.el.getObject3D('mesh');
-            if (obj) {
-              obj.traverse((node) => {
-                if (node.isMesh) {
-                  node.castShadow = true;
-                  node.receiveShadow = true;
-                }
-              });
-            }
-          });
-
-          this.el.addEventListener('click', this.onClick.bind(this));
-        },
-        
-        onClick: function(evt) {
-          evt.stopPropagation();
-          evt.preventDefault();
-        }
-      });
-
       AFRAME.registerComponent('model-rotation-control', {
         init: function() {
           this.touchStart = { x: 0, y: 0 };
-          // Initialize with 90 degrees (in radians)
-          this.currentRotation = 90;
+          this.currentRotation = 90; // Start at 90 degrees
           this.isRotating = false;
 
-          // Apply initial rotation
+          // Set initial rotation
           this.el.object3D.rotation.y = THREE.MathUtils.degToRad(this.currentRotation);
 
           this.onTouchStart = this.onTouchStart.bind(this);
@@ -121,7 +62,6 @@
           document.addEventListener('touchmove', this.onTouchMove);
           document.addEventListener('touchend', this.onTouchEnd);
 
-          // For desktop testing
           document.addEventListener('mousedown', this.onTouchStart);
           document.addEventListener('mousemove', this.onTouchMove);
           document.addEventListener('mouseup', this.onTouchEnd);
@@ -138,8 +78,8 @@
           const currentX = evt.type === 'touchmove' ? evt.touches[0].clientX : evt.clientX;
           const deltaX = currentX - this.touchStart.x;
           
-          // Adjust rotation sensitivity here
-          const rotationDelta = deltaX * 0.5;
+          // Reduced rotation speed
+          const rotationDelta = deltaX * 0.25;
           
           this.el.object3D.rotation.y = THREE.MathUtils.degToRad(this.currentRotation + rotationDelta);
         },
@@ -183,6 +123,7 @@
       <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57" shadow-camera-automatic="#model-container"></a-light>
       <a-camera camera-background position="0 0.4 0" wasd-controls="enabled: false"></a-camera>
       
+      <!-- Main model container with your specified properties -->
       <a-entity 
         id="model-container" 
         position="0 0.5 -0.8" 
@@ -190,9 +131,16 @@
         rotation="0 90 0"
         model-rotation-control
         shadow>
+        <!-- Front-facing model -->
         <a-entity
           gltf-model="#model"
-          interactive-model
+          shadow="cast: true; receive: true">
+        </a-entity>
+        <!-- Back-facing model -->
+        <a-entity
+          gltf-model="#model"
+          position="0 0 0.2"
+          rotation="0 180 0"
           shadow="cast: true; receive: true">
         </a-entity>
       </a-entity>
