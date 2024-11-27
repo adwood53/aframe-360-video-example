@@ -2,16 +2,18 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Camera Feed AR Scene</title>
+    <title>AR Model Viewer</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
     <script>
       AFRAME.registerComponent('follow-shadow', {
         schema: {type: 'selector'},
-        init() {this.el.object3D.renderOrder = -1;},
+        init() {
+          this.el.object3D.renderOrder = -1;
+        },
         tick() {
           if (this.data) {
             this.el.object3D.position.copy(this.data.object3D.position);
-            this.el.object3D.position.y-=0.001;
+            this.el.object3D.position.y -= 0.001;
           }
         }
       });
@@ -48,29 +50,34 @@
       AFRAME.registerComponent('model-rotation-control', {
         init: function() {
           this.touchStart = { x: 0, y: 0 };
-          this.currentRotation = { x: 0, y: 90, z: 0 }; // Start Y at 90 degrees
+          this.currentRotation = { x: 0, y: 90 }; // Start with Y at 90 degrees
           this.isRotating = false;
-          this.lastTouchCount = 0;
-          this.rotationMode = 'y'; // Default to Y rotation
 
-          // Set initial rotation
-          this.el.object3D.rotation.set(
-            THREE.MathUtils.degToRad(this.currentRotation.x),
-            THREE.MathUtils.degToRad(this.currentRotation.y),
-            THREE.MathUtils.degToRad(this.currentRotation.z)
-          );
+          // Prevent context menu on right click
+          document.addEventListener('contextmenu', (e) => e.preventDefault());
 
+          // Event bindings
           this.onTouchStart = this.onTouchStart.bind(this);
           this.onTouchMove = this.onTouchMove.bind(this);
           this.onTouchEnd = this.onTouchEnd.bind(this);
 
-          document.addEventListener('touchstart', this.onTouchStart);
-          document.addEventListener('touchmove', this.onTouchMove);
+          // Touch events
+          document.addEventListener('touchstart', this.onTouchStart, { passive: false });
+          document.addEventListener('touchmove', this.onTouchMove, { passive: false });
           document.addEventListener('touchend', this.onTouchEnd);
 
+          // Mouse events
           document.addEventListener('mousedown', this.onTouchStart);
           document.addEventListener('mousemove', this.onTouchMove);
           document.addEventListener('mouseup', this.onTouchEnd);
+
+          // Set initial rotation
+          this.updateRotation();
+        },
+
+        updateRotation: function() {
+          this.el.object3D.rotation.x = THREE.MathUtils.degToRad(this.currentRotation.x);
+          this.el.object3D.rotation.y = THREE.MathUtils.degToRad(this.currentRotation.y);
         },
 
         onTouchStart: function(evt) {
@@ -80,21 +87,9 @@
           if (evt.type === 'touchstart') {
             this.touchStart.x = evt.touches[0].clientX;
             this.touchStart.y = evt.touches[0].clientY;
-            this.lastTouchCount = evt.touches.length;
-
-            // Two finger touch changes rotation mode
-            if (evt.touches.length === 2) {
-              this.rotationMode = this.rotationMode === 'y' ? 'x' : 
-                                 this.rotationMode === 'x' ? 'z' : 'y';
-            }
           } else {
             this.touchStart.x = evt.clientX;
             this.touchStart.y = evt.clientY;
-            // Right click changes rotation mode
-            if (evt.button === 2) {
-              this.rotationMode = this.rotationMode === 'y' ? 'x' : 
-                                 this.rotationMode === 'x' ? 'z' : 'y';
-            }
           }
         },
 
@@ -107,52 +102,29 @@
           
           const deltaX = currentX - this.touchStart.x;
           const deltaY = currentY - this.touchStart.y;
-          
-          // Reduced rotation speed
-          const rotationDelta = {
-            x: deltaY * 0.25,
-            y: deltaX * 0.25,
-            z: deltaX * 0.25
-          };
 
-          // Update rotation based on mode
-          if (this.rotationMode === 'x') {
-            this.currentRotation.x += rotationDelta.x;
-          } else if (this.rotationMode === 'y') {
-            this.currentRotation.y += rotationDelta.y;
-          } else {
-            this.currentRotation.z += rotationDelta.z;
-          }
+          // Slower rotation speed (0.25)
+          this.currentRotation.y += deltaX * 0.25;
+          this.currentRotation.x += deltaY * 0.25;
 
-          this.el.object3D.rotation.set(
-            THREE.MathUtils.degToRad(this.currentRotation.x),
-            THREE.MathUtils.degToRad(this.currentRotation.y),
-            THREE.MathUtils.degToRad(this.currentRotation.z)
-          );
+          this.updateRotation();
 
           this.touchStart.x = currentX;
           this.touchStart.y = currentY;
         },
 
         onTouchEnd: function(evt) {
-          if (evt.type === 'touchend') {
-            if (evt.touches.length < this.lastTouchCount) {
-              this.isRotating = false;
-            }
-            this.lastTouchCount = evt.touches.length;
-          } else {
-            this.isRotating = false;
-          }
+          this.isRotating = false;
         },
 
         remove: function() {
-          document.addEventListener('contextmenu', e => e.preventDefault());
           document.removeEventListener('touchstart', this.onTouchStart);
           document.removeEventListener('touchmove', this.onTouchMove);
           document.removeEventListener('touchend', this.onTouchEnd);
           document.removeEventListener('mousedown', this.onTouchStart);
           document.removeEventListener('mousemove', this.onTouchMove);
           document.removeEventListener('mouseup', this.onTouchEnd);
+          document.removeEventListener('contextmenu', this.onContextMenu);
         }
       });
 
@@ -176,9 +148,11 @@
       </a-assets>
 
       <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57" shadow-camera-automatic="#model-container"></a-light>
-      <a-camera camera-background position="0 0.4 0" wasd-controls="enabled: false"></a-camera>
       
-      <!-- Main model container with your specified properties -->
+      <!-- Camera with rotation controls disabled -->
+      <a-camera camera-background position="0 0.4 0" wasd-controls="enabled: false" look-controls="enabled: false"></a-camera>
+      
+      <!-- Main model container -->
       <a-entity 
         id="model-container" 
         position="0 0.5 -0.8" 
