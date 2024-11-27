@@ -154,7 +154,7 @@
       <!-- Camera with rotation controls disabled -->
       <a-camera camera-background position="0 0.4 0" wasd-controls="enabled: false" look-controls="enabled: false"></a-camera>
       
-      <!-- Main model container -->
+      <!-- Main model container with your specified properties -->
       <a-entity 
         id="model-container" 
         position="0 0.5 -0.8" 
@@ -170,7 +170,7 @@
         <!-- Back-facing model -->
         <a-entity
           gltf-model="#model"
-          position="0 0 0.2"
+          position="0 0 1"
           rotation="0 180 0"
           shadow="cast: true; receive: true">
         </a-entity>
