@@ -258,19 +258,10 @@
   rotation="0 90 0"
   model-control
   shadow>
-  <!-- Models positioned equidistant from center -->
   <a-entity
     gltf-model="#model"
-    position="0.45 0 0"  <!-- Half the distance between models -->
+    position="0 0 0"  
     shadow="cast: true; receive: true">
-  </a-entity>
-  <a-entity
-    position="-0.45 0 0" <!-- Mirrored distance on other side -->
-    shadow="cast: true; receive: true">
-    <a-entity
-      gltf-model="#model"
-      rotation="0 180 0"> <!-- Flip the model within a nested entity -->
-    </a-entity>
   </a-entity>
 </a-entity>
       
