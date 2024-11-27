@@ -2,7 +2,8 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>2 AR Model Viewer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AR Model Viewer</title>
     <script src="https://aframe.io/aframe/dist/aframe-master.js"></script>
     <style>
       .control-buttons {
@@ -13,34 +14,33 @@
         z-index: 1000;
         display: flex;
         gap: 10px;
+        touch-action: none;
       }
       
       .control-btn {
+        -webkit-appearance: none;
         background: rgba(255, 255, 255, 0.9);
         border: none;
         border-radius: 50%;
-        width: 50px;
-        height: 50px;
-        font-size: 24px;
+        width: 60px;
+        height: 60px;
+        font-size: 28px;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
         box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        transition: all 0.3s ease;
-      }
-
-      .control-btn:hover {
-        background: white;
-        transform: scale(1.1);
-      }
-
-      .control-btn:active {
-        transform: scale(0.95);
+        padding: 0;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
       }
 
       .reset-btn {
-        font-size: 16px;
+        font-size: 18px;
+        width: 80px;
+        border-radius: 30px;
       }
     </style>
     <script>
@@ -59,67 +59,115 @@
 
       AFRAME.registerComponent('webcam-texture', {
         init: function() {
-          var video = document.createElement('video');
-          video.setAttribute('autoplay', true);
-          video.setAttribute('playsinline', true);
-          video.setAttribute('webkit-playsinline', true);
+          this.video = document.createElement('video');
+          this.video.setAttribute('autoplay', true);
+          this.video.setAttribute('playsinline', true);
+          this.video.setAttribute('webkit-playsinline', true);
           
+          const setupVideoSize = () => {
+            if (!this.video.videoWidth) return;
+            
+            const sceneEl = document.querySelector('a-scene');
+            const windowRatio = window.innerWidth / window.innerHeight;
+            const videoRatio = this.video.videoWidth / this.video.videoHeight;
+            let scale = 1;
+
+            if (windowRatio > videoRatio) {
+              scale = windowRatio / videoRatio;
+              this.plane.scale.set(scale, 1, 1);
+            } else {
+              scale = 1 / (windowRatio / videoRatio);
+              this.plane.scale.set(1, scale, 1);
+            }
+
+            // Adjust Z position based on scale to ensure coverage
+            const zPos = -1 * Math.max(1, scale * 0.8);
+            this.plane.position.z = zPos;
+          };
+
           if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-              .then(function(stream) {
-                video.srcObject = stream;
-                video.play();
-              })
-              .catch(function(error) {
-                console.error('Camera error:', error);
-              });
+            navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: 'environment',
+                width: { ideal: 1920 },
+                height: { ideal: 1080 }
+              }
+            })
+            .then((stream) => {
+              this.video.srcObject = stream;
+              this.video.play();
+              
+              this.video.addEventListener('loadedmetadata', setupVideoSize);
+              window.addEventListener('resize', setupVideoSize);
+            })
+            .catch(console.error);
           }
 
-          var geometry = new THREE.PlaneGeometry(2, 2);
-          var material = new THREE.MeshBasicMaterial({ 
-            map: new THREE.VideoTexture(video),
+          // Create video plane
+          const geometry = new THREE.PlaneGeometry(1, 1);
+          const material = new THREE.MeshBasicMaterial({
+            map: new THREE.VideoTexture(this.video),
             side: THREE.DoubleSide
           });
-          var mesh = new THREE.Mesh(geometry, material);
-          this.el.setObject3D('mesh', mesh);
+          this.plane = new THREE.Mesh(geometry, material);
+          this.el.setObject3D('mesh', this.plane);
           this.el.object3D.renderOrder = -2;
         }
       });
 
       AFRAME.registerComponent('model-control', {
-        schema: {
-          defaultPosition: { type: 'vec3' },
-          defaultRotation: { type: 'vec3' },
-          defaultScale: { type: 'vec3' }
-        },
-
         init: function() {
           this.touchStart = { x: 0, y: 0 };
           this.currentRotation = { y: 90, z: 0 };
           this.isRotating = false;
-          this.currentZ = -0.8;  // Starting Z position
+          this.currentZ = -0.8;
 
-          // Bind methods
-          this.onTouchStart = this.onTouchStart.bind(this);
-          this.onTouchMove = this.onTouchMove.bind(this);
-          this.onTouchEnd = this.onTouchEnd.bind(this);
-          this.updatePosition = this.updatePosition.bind(this);
-          this.resetModel = this.resetModel.bind(this);
-
-          // Event listeners for touch/mouse
-          document.addEventListener('contextmenu', (e) => e.preventDefault());
-          document.addEventListener('touchstart', this.onTouchStart, { passive: false });
-          document.addEventListener('touchmove', this.onTouchMove, { passive: false });
-          document.addEventListener('touchend', this.onTouchEnd);
-          document.addEventListener('mousedown', this.onTouchStart);
-          document.addEventListener('mousemove', this.onTouchMove);
-          document.addEventListener('mouseup', this.onTouchEnd);
-
-          // Create UI controls
+          this.setupTouchEvents();
           this.createControls();
-          
-          // Set initial rotation
           this.updateRotation();
+        },
+
+        setupTouchEvents: function() {
+          document.addEventListener('contextmenu', (e) => e.preventDefault());
+          
+          // Model rotation events
+          const touchStartHandler = (e) => {
+            e.preventDefault();
+            this.isRotating = true;
+            this.touchStart.x = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+            this.touchStart.y = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+          };
+
+          const touchMoveHandler = (e) => {
+            if (!this.isRotating) return;
+            e.preventDefault();
+
+            const currentX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            const currentY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+            
+            const deltaX = currentX - this.touchStart.x;
+            const deltaY = currentY - this.touchStart.y;
+
+            this.currentRotation.y += deltaX * 0.25;
+            this.currentRotation.z += deltaY * 0.25;
+
+            this.updateRotation();
+
+            this.touchStart.x = currentX;
+            this.touchStart.y = currentY;
+          };
+
+          const touchEndHandler = () => {
+            this.isRotating = false;
+          };
+
+          // Add event listeners with proper options
+          document.addEventListener('touchstart', touchStartHandler, { passive: false });
+          document.addEventListener('touchmove', touchMoveHandler, { passive: false });
+          document.addEventListener('touchend', touchEndHandler);
+          document.addEventListener('mousedown', touchStartHandler);
+          document.addEventListener('mousemove', touchMoveHandler);
+          document.addEventListener('mouseup', touchEndHandler);
         },
 
         createControls: function() {
@@ -129,20 +177,35 @@
           // Zoom out button
           const zoomOutBtn = document.createElement('button');
           zoomOutBtn.className = 'control-btn';
-          zoomOutBtn.textContent = '-';
-          zoomOutBtn.onclick = () => this.updatePosition(0.1);
+          zoomOutBtn.textContent = '−';
+          ['touchstart', 'click'].forEach(eventName => {
+            zoomOutBtn.addEventListener(eventName, (e) => {
+              e.preventDefault();
+              this.updatePosition(0.1);
+            });
+          });
 
           // Reset button
           const resetBtn = document.createElement('button');
           resetBtn.className = 'control-btn reset-btn';
           resetBtn.textContent = 'RESET';
-          resetBtn.onclick = this.resetModel;
+          ['touchstart', 'click'].forEach(eventName => {
+            resetBtn.addEventListener(eventName, (e) => {
+              e.preventDefault();
+              this.resetModel();
+            });
+          });
 
           // Zoom in button
           const zoomInBtn = document.createElement('button');
           zoomInBtn.className = 'control-btn';
           zoomInBtn.textContent = '+';
-          zoomInBtn.onclick = () => this.updatePosition(-0.1);
+          ['touchstart', 'click'].forEach(eventName => {
+            zoomInBtn.addEventListener(eventName, (e) => {
+              e.preventDefault();
+              this.updatePosition(-0.1);
+            });
+          });
 
           controls.appendChild(zoomOutBtn);
           controls.appendChild(resetBtn);
@@ -152,7 +215,6 @@
 
         updatePosition: function(delta) {
           this.currentZ += delta;
-          // Clamp position between -2 and -0.3
           this.currentZ = Math.max(-2, Math.min(-0.3, this.currentZ));
           this.el.object3D.position.z = this.currentZ;
         },
@@ -167,50 +229,6 @@
         updateRotation: function() {
           this.el.object3D.rotation.y = THREE.MathUtils.degToRad(this.currentRotation.y);
           this.el.object3D.rotation.z = THREE.MathUtils.degToRad(this.currentRotation.z);
-        },
-
-        onTouchStart: function(evt) {
-          evt.preventDefault();
-          this.isRotating = true;
-          if (evt.type === 'touchstart') {
-            this.touchStart.x = evt.touches[0].clientX;
-            this.touchStart.y = evt.touches[0].clientY;
-          } else {
-            this.touchStart.x = evt.clientX;
-            this.touchStart.y = evt.clientY;
-          }
-        },
-
-        onTouchMove: function(evt) {
-          if (!this.isRotating) return;
-          evt.preventDefault();
-
-          const currentX = evt.type === 'touchmove' ? evt.touches[0].clientX : evt.clientX;
-          const currentY = evt.type === 'touchmove' ? evt.touches[0].clientY : evt.clientY;
-          
-          const deltaX = currentX - this.touchStart.x;
-          const deltaY = currentY - this.touchStart.y;
-
-          this.currentRotation.y += deltaX * 0.25;
-          this.currentRotation.z += deltaY * 0.25;
-
-          this.updateRotation();
-
-          this.touchStart.x = currentX;
-          this.touchStart.y = currentY;
-        },
-
-        onTouchEnd: function() {
-          this.isRotating = false;
-        },
-
-        remove: function() {
-          document.removeEventListener('touchstart', this.onTouchStart);
-          document.removeEventListener('touchmove', this.onTouchMove);
-          document.removeEventListener('touchend', this.onTouchEnd);
-          document.removeEventListener('mousedown', this.onTouchStart);
-          document.removeEventListener('mousemove', this.onTouchMove);
-          document.removeEventListener('mouseup', this.onTouchEnd);
         }
       });
 
@@ -218,7 +236,6 @@
         init: function() {
           const backgroundEl = document.createElement('a-entity');
           backgroundEl.setAttribute('webcam-texture', '');
-          backgroundEl.setAttribute('position', '0 0 -2');  // Moved back to -2
           this.el.appendChild(backgroundEl);
         }
       });
@@ -236,6 +253,7 @@
       <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57" shadow-camera-automatic="#model-container"></a-light>
       <a-camera camera-background position="0 0.4 0" wasd-controls="enabled: false" look-controls="enabled: false"></a-camera>
       
+      <!-- Main model container with your specified properties -->
       <a-entity 
         id="model-container" 
         position="0 0.5 -0.8" 
@@ -246,13 +264,12 @@
         <!-- Front-facing model -->
         <a-entity
           gltf-model="#model"
-          position="-0.2 0 0"
           shadow="cast: true; receive: true">
         </a-entity>
         <!-- Back-facing model -->
         <a-entity
           gltf-model="#model"
-          position="0.2 0 0"
+          position="0.4 0 0.2"
           rotation="0 180 0"
           shadow="cast: true; receive: true">
         </a-entity>
