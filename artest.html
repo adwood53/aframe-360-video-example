@@ -59,28 +59,24 @@
 
       AFRAME.registerComponent('camera-background-plane', {
         schema: {
-          distance: { type: 'number', default: -3 }  // Distance behind camera
+          distance: { type: 'number', default: -3 }
         },
 
         init: function() {
-          // Create video element
           this.video = document.createElement('video');
           this.video.setAttribute('autoplay', true);
           this.video.setAttribute('playsinline', true);
           this.video.setAttribute('webkit-playsinline', true);
           
-          // Function to set up plane size based on viewport and video dimensions
           const setupPlane = () => {
             if (!this.video.videoWidth) return;
             
-            // Calculate viewport dimensions at desired Z distance
             const fov = this.el.sceneEl.camera.fov;
             const distance = Math.abs(this.data.distance);
             const vFov = THREE.MathUtils.degToRad(fov);
             const height = 2 * Math.tan(vFov / 2) * distance;
             const width = height * (window.innerWidth / window.innerHeight);
 
-            // Create or update plane geometry
             if (this.plane) {
               this.el.removeObject3D('mesh');
             }
@@ -96,7 +92,6 @@
             this.el.setObject3D('mesh', this.plane);
           };
 
-          // Initialize camera
           if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             navigator.mediaDevices.getUserMedia({
               video: {
@@ -108,16 +103,11 @@
             .then((stream) => {
               this.video.srcObject = stream;
               this.video.play();
-              
-              // Set up plane once video metadata is loaded
-              this.video.addEventListener('loadedmetadata', () => {
-                setupPlane();
-              });
+              this.video.addEventListener('loadedmetadata', setupPlane);
             })
             .catch(console.error);
           }
 
-          // Handle window resizing
           window.addEventListener('resize', setupPlane);
         }
       });
@@ -127,7 +117,7 @@
           this.touchStart = { x: 0, y: 0 };
           this.currentRotation = { y: 90, z: 0 };
           this.isRotating = false;
-          this.currentZ = -0.8;
+          this.currentZ = -1;
 
           this.setupTouchEvents();
           this.createControls();
@@ -135,13 +125,18 @@
         },
 
         setupTouchEvents: function() {
+          const canvas = document.querySelector('canvas');
+          if (!canvas) return;
+
           document.addEventListener('contextmenu', (e) => e.preventDefault());
           
           const touchStartHandler = (e) => {
-            e.preventDefault();
-            this.isRotating = true;
-            this.touchStart.x = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-            this.touchStart.y = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+            if (e.target === canvas) {
+              e.preventDefault();
+              this.isRotating = true;
+              this.touchStart.x = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+              this.touchStart.y = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+            }
           };
 
           const touchMoveHandler = (e) => {
@@ -167,12 +162,12 @@
             this.isRotating = false;
           };
 
-          document.addEventListener('touchstart', touchStartHandler, { passive: false });
-          document.addEventListener('touchmove', touchMoveHandler, { passive: false });
-          document.addEventListener('touchend', touchEndHandler);
-          document.addEventListener('mousedown', touchStartHandler);
-          document.addEventListener('mousemove', touchMoveHandler);
-          document.addEventListener('mouseup', touchEndHandler);
+          canvas.addEventListener('touchstart', touchStartHandler, { passive: false });
+          canvas.addEventListener('touchmove', touchMoveHandler, { passive: false });
+          canvas.addEventListener('touchend', touchEndHandler);
+          canvas.addEventListener('mousedown', touchStartHandler);
+          canvas.addEventListener('mousemove', touchMoveHandler);
+          canvas.addEventListener('mouseup', touchEndHandler);
         },
 
         createControls: function() {
@@ -222,7 +217,7 @@
         },
 
         resetModel: function() {
-          this.currentZ = -0.8;
+          this.currentZ = -1;
           this.currentRotation = { y: 90, z: 0 };
           this.el.object3D.position.z = this.currentZ;
           this.updateRotation();
@@ -248,30 +243,28 @@
       
       <a-camera position="0 0.4 0" wasd-controls="enabled: false" look-controls="enabled: false">
         <a-entity camera-background-plane="distance: -3"></a-entity>
-        <!-- Point light attached to the camera -->
         <a-light 
           type="point" 
-          intensity="3" 
+          intensity="1" 
           distance="10" 
-          position="0 0 -1" <!-- Light in front of the camera -->
+          position="0 0 -1"
           color="#ffffff">
         </a-light>
       </a-camera>
       
-<!-- Model container with rotation point centered between models -->
-<a-entity 
-  id="model-container" 
-  position="0 0.5 -1" 
-  scale="0.4 0.4 0.4" 
-  rotation="0 90 0"
-  model-control
-  shadow>
-  <a-entity
-    gltf-model="#model"
-    position="0 0 0"  
-    shadow="cast: true; receive: true">
-  </a-entity>
-</a-entity>
+      <a-entity 
+        id="model-container" 
+        position="0 0.5 -1" 
+        scale="0.4 0.4 0.4" 
+        rotation="0 90 0"
+        model-control
+        shadow>
+        <a-entity
+          gltf-model="#model"
+          position="0 0 0"  
+          shadow="cast: true; receive: true">
+        </a-entity>
+      </a-entity>
       
       <a-plane follow-shadow="#model-container" material="shader:shadow" shadow="cast:false;" rotation="-90 0 0" width="2" height="2"></a-plane>
     </a-scene>
