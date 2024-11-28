@@ -240,17 +240,10 @@
       </a-assets>
 
       <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57" shadow-camera-automatic="#model-container"></a-light>
-      <a-entity light="type: ambient; color: #CCC"></a-entity>
+      <a-entity light="type: ambient; color: #FFFFF; intensity: 1"></a-entity>
       
       <a-camera position="0 0.4 0" wasd-controls="enabled: false" look-controls="enabled: false">
         <a-entity camera-background-plane="distance: -3"></a-entity>
-        <a-light 
-          type="point" 
-          intensity="5" 
-          distance="100" 
-          position="0 0 0"
-          color="#ffffff">
-        </a-light>
       </a-camera>
       
       <a-entity 
